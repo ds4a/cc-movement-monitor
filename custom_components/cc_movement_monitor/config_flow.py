@@ -78,21 +78,18 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry):
         """Return options flow."""
-        return OptionsFlow(config_entry)
+        return OptionsFlow()
 
 
 class OptionsFlow(config_entries.OptionsFlow):
     """Handle options (reconfigure after setup)."""
-
-    def __init__(self, config_entry) -> None:
-        self._entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Show options form."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        cfg = {**self._entry.data, **self._entry.options}
+        cfg = {**self.config_entry.data, **self.config_entry.options}
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
