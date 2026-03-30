@@ -84,13 +84,27 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         def _test():
             try:
                 from pymodbus.client import ModbusTcpClient
+                from pymodbus.exceptions import ConnectionException, ModbusException
                 c = ModbusTcpClient(host, port=502, timeout=5)
                 if not c.connect():
+                    _LOGGER.error("Modbus connect() returned False for %s", host)
                     return False, "cannot_connect"
-                r = c.read_holding_registers(2806, count=1, slave=slave)
-                c.close()
-                return (False, "modbus_error") if r.isError() else (True, "")
-            except Exception:  # noqa: BLE001
+                try:
+                    r = c.read_holding_registers(2806, count=1, slave=slave)
+                except ConnectionException as exc:
+                    _LOGGER.error("Modbus ConnectionException for %s: %s", host, exc)
+                    return False, "cannot_connect"
+                except ModbusException as exc:
+                    _LOGGER.error("Modbus protocol error for %s slave %s: %s", host, slave, exc)
+                    return False, "modbus_error"
+                finally:
+                    c.close()
+                if r.isError():
+                    _LOGGER.error("Modbus error response from %s slave %s: %s", host, slave, r)
+                    return False, "modbus_error"
+                return True, ""
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.exception("Unexpected error testing Modbus on %s: %s", host, exc)
                 return False, "cannot_connect"
         return await self.hass.async_add_executor_job(_test)
 
