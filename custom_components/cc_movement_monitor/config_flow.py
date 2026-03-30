@@ -6,6 +6,11 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import callback
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+)
 
 from .const import DOMAIN
 
@@ -22,7 +27,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            # Test Modbus connection
+            # Coerce selector float values to int
+            user_input["modbus_slave"]  = int(user_input["modbus_slave"])
+            user_input["reminder_days"] = int(user_input["reminder_days"])
+            user_input["warning_days"]  = int(user_input["warning_days"])
+
             host  = user_input["cerbo_host"].strip()
             slave = user_input["modbus_slave"]
             ok, err = await self._test_modbus(host, slave)
@@ -40,12 +49,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({
                 vol.Required("boat_name", default="My Boat"): str,
                 vol.Required("cerbo_host"): str,
-                vol.Required("modbus_slave", default=100):
-                    vol.All(int, vol.Range(min=1, max=247)),
-                vol.Required("reminder_days", default=14):
-                    vol.All(int, vol.Range(min=1, max=28)),
-                vol.Required("warning_days", default=10):
-                    vol.All(int, vol.Range(min=1, max=27)),
+                vol.Required("modbus_slave", default=100): NumberSelector(
+                    NumberSelectorConfig(min=1, max=247, step=1, mode=NumberSelectorMode.BOX)
+                ),
+                vol.Required("reminder_days", default=14): NumberSelector(
+                    NumberSelectorConfig(min=1, max=30, step=1, mode=NumberSelectorMode.SLIDER)
+                ),
+                vol.Required("warning_days", default=10): NumberSelector(
+                    NumberSelectorConfig(min=1, max=30, step=1, mode=NumberSelectorMode.SLIDER)
+                ),
                 vol.Required("notify_push", default=True): bool,
                 vol.Optional("notifier", default=""): str,
                 vol.Required("notify_persistent", default=True): bool,
@@ -87,6 +99,8 @@ class OptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Show options form."""
         if user_input is not None:
+            user_input["reminder_days"] = int(user_input["reminder_days"])
+            user_input["warning_days"]  = int(user_input["warning_days"])
             return self.async_create_entry(title="", data=user_input)
 
         cfg = {**self.config_entry.data, **self.config_entry.options}
@@ -94,11 +108,13 @@ class OptionsFlow(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema({
                 vol.Required("reminder_days",
-                    default=cfg.get("reminder_days", 14)):
-                    vol.All(int, vol.Range(min=1, max=28)),
+                    default=cfg.get("reminder_days", 14)): NumberSelector(
+                    NumberSelectorConfig(min=1, max=30, step=1, mode=NumberSelectorMode.SLIDER)
+                ),
                 vol.Required("warning_days",
-                    default=cfg.get("warning_days", 10)):
-                    vol.All(int, vol.Range(min=1, max=27)),
+                    default=cfg.get("warning_days", 10)): NumberSelector(
+                    NumberSelectorConfig(min=1, max=30, step=1, mode=NumberSelectorMode.SLIDER)
+                ),
                 vol.Required("notify_push",
                     default=cfg.get("notify_push", True)): bool,
                 vol.Optional("notifier",

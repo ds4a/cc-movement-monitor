@@ -19,12 +19,12 @@
         "title": "Mooring Thresholds",
         "description": "How long can the boat stay in one place before you need to move? The Canal & River Trust standard is 14 days.",
         "data": {
-          "reminder_days": "Must Move After (days)",
-          "warning_days": "Early Warning At (days)"
+          "reminder_days": "Maximum Stay Duration (days)",
+          "warning_days": "Reminder Sent On Day"
         },
         "data_description": {
-          "reminder_days": "Deadline \u2014 urgent alerts fire every 12 h after this (CRT default: 14)",
-          "warning_days": "Gentle heads-up before the deadline, re-sent every 24 h (default: 10)"
+          "reminder_days": "Urgent alerts fire every 12 h once this limit is reached (CRT default: 14)",
+          "warning_days": "Gentle heads-up sent on this day, re-sent every 24 h (default: 10)"
         }
       },
       "notifications": {
@@ -64,8 +64,8 @@
       "init": {
         "title": "CC Movement Monitor \u2014 Settings",
         "data": {
-          "reminder_days": "Must Move After (days)",
-          "warning_days": "Early Warning At (days)",
+          "reminder_days": "Maximum Stay Duration (days)",
+          "warning_days": "Reminder Sent On Day",
           "notify_push": "Mobile Push Notifications",
           "notifier": "Companion App Notifier Name",
           "notify_persistent": "Dashboard Persistent Notifications",
