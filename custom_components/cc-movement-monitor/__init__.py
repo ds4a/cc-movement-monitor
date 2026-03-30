@@ -17,9 +17,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, callback
-
-from . import config_flow  # noqa: F401 — ensures ConfigFlow is registered
+from homeassistant.core import HomeAssistant
 
 from .const import (
     CONF_BOAT_NAME,

@@ -4,7 +4,6 @@ import logging
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
     CONF_BOAT_NAME,
@@ -30,7 +29,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # Step 1 ── Cerbo GX connection ──────────────────────────────────────────
 
-    async def async_step_user(self, user_input=None) -> FlowResult:
+    async def async_step_user(self, user_input=None):
         errors = {}
         if user_input is not None:
             host  = user_input[CONF_CERBO_HOST].strip()
@@ -54,7 +53,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # Step 2 ── Thresholds ───────────────────────────────────────────────────
 
-    async def async_step_thresholds(self, user_input=None) -> FlowResult:
+    async def async_step_thresholds(self, user_input=None):
         if user_input is not None:
             self._data.update(user_input)
             return await self.async_step_notifications()
@@ -71,7 +70,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # Step 3 ── Notifications ────────────────────────────────────────────────
 
-    async def async_step_notifications(self, user_input=None) -> FlowResult:
+    async def async_step_notifications(self, user_input=None):
         errors = {}
         if user_input is not None:
             if user_input.get(CONF_NOTIFY_EMAIL) and not user_input.get(CONF_SMTP_RECIPIENT):
@@ -132,7 +131,7 @@ class OptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry) -> None:
         self._entry = config_entry
 
-    async def async_step_init(self, user_input=None) -> FlowResult:
+    async def async_step_init(self, user_input=None):
         errors = {}
         if user_input is not None:
             if user_input.get(CONF_NOTIFY_EMAIL) and not user_input.get(CONF_SMTP_RECIPIENT, "").strip():
