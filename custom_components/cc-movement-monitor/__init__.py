@@ -19,6 +19,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 
+from . import config_flow  # noqa: F401 — ensures ConfigFlow is registered
+
 from .const import (
     CONF_BOAT_NAME,
     DOMAIN, CONF_CERBO_HOST, CONF_MODBUS_SLAVE,

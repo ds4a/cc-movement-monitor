@@ -20,7 +20,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class CcMovementConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Three-step setup wizard: connection → thresholds → notifications."""
 
     VERSION = 1
@@ -123,10 +123,10 @@ class CcMovementConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return CcMovementOptionsFlow(config_entry)
+        return OptionsFlow(config_entry)
 
 
-class CcMovementOptionsFlow(config_entries.OptionsFlow):
+class OptionsFlow(config_entries.OptionsFlow):
     """Reconfigure thresholds and notifications after initial setup."""
 
     def __init__(self, config_entry) -> None:
