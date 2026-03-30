@@ -5,7 +5,7 @@
   "config_flow": true,
   "documentation": "https://github.com/ds4a/cc-movement-monitor",
   "issue_tracker": "https://github.com/ds4a/cc-movement-monitor/issues",
-  "requirements": ["pymodbus==3.7.4"],
+  "requirements": ["pymodbus>=3.7.0"],
   "dependencies": [],
   "codeowners": ["@ds4a"],
   "iot_class": "local_polling",
