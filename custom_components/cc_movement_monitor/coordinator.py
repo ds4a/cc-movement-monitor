@@ -64,36 +64,39 @@ class BoatCoordinator(DataUpdateCoordinator):
 
     # ── Modbus ────────────────────────────────────────────────────────────────
 
-    def _read_modbus_sync(self) -> dict[str, Any]:
-        """Blocking Modbus read — runs in executor thread."""
-        from pymodbus.client import ModbusTcpClient
-        from pymodbus.exceptions import ModbusException
+    async def _async_read_modbus(self) -> dict[str, Any]:
+        """Async Modbus read using AsyncModbusTcpClient."""
+        from pymodbus.client import AsyncModbusTcpClient
+        from pymodbus.exceptions import ModbusException, ConnectionException
 
-        client = ModbusTcpClient(self._host, port=502, timeout=5)
+        client = AsyncModbusTcpClient(self._host, port=502, timeout=5)
         try:
-            if not client.connect():
+            await client.connect()
+            if not client.connected:
                 raise UpdateFailed(f"Cannot connect to Cerbo GX at {self._host}:502")
 
-            def read_int32(addr: int) -> int:
-                r = client.read_holding_registers(addr, count=2, slave=self._slave)
+            async def read_int32(addr: int) -> int:
+                r = await client.read_holding_registers(addr, count=2, slave=self._slave)
                 if r.isError():
                     raise UpdateFailed(f"Modbus error at register {addr}")
                 hi, lo = r.registers
                 raw = (hi << 16) | lo
                 return raw - 0x100000000 if raw >= 0x80000000 else raw
 
-            def read_uint16(addr: int) -> int:
-                r = client.read_holding_registers(addr, count=1, slave=self._slave)
+            async def read_uint16(addr: int) -> int:
+                r = await client.read_holding_registers(addr, count=1, slave=self._slave)
                 if r.isError():
                     raise UpdateFailed(f"Modbus error at register {addr}")
                 return r.registers[0]
 
             return {
-                "latitude":  read_int32(REG_LATITUDE)  * 1e-7,
-                "longitude": read_int32(REG_LONGITUDE) * 1e-7,
-                "speed_ms":  read_uint16(REG_SPEED)    * 0.01,
-                "fix":       read_uint16(REG_FIX),
+                "latitude":  (await read_int32(REG_LATITUDE))  * 1e-7,
+                "longitude": (await read_int32(REG_LONGITUDE)) * 1e-7,
+                "speed_ms":  (await read_uint16(REG_SPEED))    * 0.01,
+                "fix":        await read_uint16(REG_FIX),
             }
+        except ConnectionException as exc:
+            raise UpdateFailed(f"Cannot connect to Cerbo GX at {self._host}:502: {exc}") from exc
         except ModbusException as exc:
             raise UpdateFailed(f"Modbus error: {exc}") from exc
         finally:
@@ -116,7 +119,7 @@ class BoatCoordinator(DataUpdateCoordinator):
         if not self._store_loaded:
             await self._load_store()
 
-        raw = await self.hass.async_add_executor_job(self._read_modbus_sync)
+        raw = await self._async_read_modbus()
         lat, lon = raw["latitude"], raw["longitude"]
         fix       = raw["fix"]
         speed_kmh = raw["speed_ms"] * 3.6
