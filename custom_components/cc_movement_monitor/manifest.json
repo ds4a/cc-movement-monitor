@@ -1,7 +1,7 @@
 {
   "domain": "cc_movement_monitor",
   "name": "CC Movement Monitor",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "config_flow": true,
   "documentation": "https://github.com/ds4a/cc-movement-monitor",
   "issue_tracker": "https://github.com/ds4a/cc-movement-monitor/issues",

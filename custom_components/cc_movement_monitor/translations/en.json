@@ -18,7 +18,8 @@
           "smtp_port": "SMTP Port",
           "smtp_user": "SMTP Username",
           "smtp_password": "SMTP Password",
-          "smtp_recipient": "Recipient Email Address"
+          "smtp_recipient": "Recipient Email Address",
+          "skip_connection_test": "Skip connection test"
         },
         "data_description": {
           "cerbo_host": "Local IP of your Cerbo GX, e.g. 192.168.1.100",
@@ -28,7 +29,8 @@
           "warning_days": "Gentle heads-up sent on this day, re-sent every 24 h (default: 10)",
           "notifier": "e.g. mobile_app_johns_iphone \u2014 find under Settings \u2192 Devices & Services \u2192 Mobile App",
           "smtp_server": "e.g. smtp.gmail.com \u2014 Gmail users: use an App Password from myaccount.google.com/apppasswords",
-          "smtp_port": "Usually 587 (STARTTLS)"
+          "smtp_port": "Usually 587 (STARTTLS)",
+          "skip_connection_test": "Enable if your Cerbo GX is not currently reachable (e.g. boat is away or Modbus TCP not yet configured)"
         }
       }
     },

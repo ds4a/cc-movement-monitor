@@ -32,17 +32,24 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input["reminder_days"] = int(user_input["reminder_days"])
             user_input["warning_days"]  = int(user_input["warning_days"])
 
-            host  = user_input["cerbo_host"].strip()
-            slave = user_input["modbus_slave"]
-            ok, err = await self._test_modbus(host, slave)
-            if ok:
+            host       = user_input["cerbo_host"].strip()
+            slave      = user_input["modbus_slave"]
+            skip_test  = user_input.pop("skip_connection_test", False)
+
+            proceed = True
+            if not skip_test:
+                ok, err = await self._test_modbus(host, slave)
+                if not ok:
+                    proceed = False
+                    errors["base"] = err
+
+            if proceed:
                 await self.async_set_unique_id(f"cc_movement_monitor_{host}")
                 self._abort_if_unique_id_configured()
                 return self.async_create_entry(
                     title=user_input.get("boat_name", "My Boat"),
                     data=user_input,
                 )
-            errors["base"] = err
 
         return self.async_show_form(
             step_id="user",
@@ -67,6 +74,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional("smtp_user", default=""): str,
                 vol.Optional("smtp_password", default=""): str,
                 vol.Optional("smtp_recipient", default=""): str,
+                vol.Required("skip_connection_test", default=False): bool,
             }),
             errors=errors,
         )
