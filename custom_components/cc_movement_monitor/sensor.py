@@ -11,7 +11,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN,
-    DOMAIN,
     ENTITY_LATITUDE, ENTITY_LONGITUDE, ENTITY_SPEED, ENTITY_FIX,
     ENTITY_LAST_MOVED, ENTITY_STATIONARY_HOURS, ENTITY_STATIONARY_DAYS,
     ENTITY_DAYS_REMAINING, ENTITY_STATUS,
@@ -170,7 +169,7 @@ class BoatMooringStatusSensor(_Base):
         if lm is None: return STATUS_NO_FIX
         days = (datetime.now(timezone.utc) - lm).total_seconds() / 86400
         reminder = self._cfg("reminder_days", 14)
-        warning  = self._cfg()
+        warning  = self._cfg("warning_days", 10)
         if days >= reminder: return STATUS_ALERT
         if days >= warning:  return STATUS_WARN
         return STATUS_OK
