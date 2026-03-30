@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from .const import DOMAIN, CONF_NOTIFY_PUSH, CONF_NOTIFY_PERSISTENT, CONF_NOTIFY_EMAIL
+from .const import DOMAIN
 from .coordinator import BoatCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,14 +60,14 @@ class _BoatSwitch(SwitchEntity, RestoreEntity):
 class BoatPushSwitch(_BoatSwitch):
     _attr_name = "Push Notifications"
     _attr_icon = "mdi:bell-alert"
-    def __init__(self, c, e): super().__init__(c, e, "notify_push", CONF_NOTIFY_PUSH, True)
+    def __init__(self, c, e): super().__init__(c, e, "notify_push", "notify_push", True)
 
 class BoatPersistentSwitch(_BoatSwitch):
     _attr_name = "Dashboard Alerts"
     _attr_icon = "mdi:monitor-dashboard"
-    def __init__(self, c, e): super().__init__(c, e, "notify_persistent", CONF_NOTIFY_PERSISTENT, True)
+    def __init__(self, c, e): super().__init__(c, e, "notify_persistent", "notify_persistent", True)
 
 class BoatEmailSwitch(_BoatSwitch):
     _attr_name = "Email Alerts"
     _attr_icon = "mdi:email-alert"
-    def __init__(self, c, e): super().__init__(c, e, "notify_email", CONF_NOTIFY_EMAIL, False)
+    def __init__(self, c, e): super().__init__(c, e, "notify_email", "notify_email", False)

@@ -1,174 +1,124 @@
-"""CC Movement Monitor — Config Flow & Options Flow."""
+"""CC Movement Monitor — Config Flow."""
 from __future__ import annotations
+
 import logging
 import voluptuous as vol
+
 from homeassistant import config_entries
 from homeassistant.core import callback
 
-from .const import (
-    CONF_BOAT_NAME,
-    DOMAIN,
-    CONF_CERBO_HOST, CONF_MODBUS_SLAVE,
-    CONF_REMINDER_DAYS, CONF_WARNING_DAYS,
-    CONF_NOTIFIER,
-    CONF_SMTP_SERVER, CONF_SMTP_PORT, CONF_SMTP_USER, CONF_SMTP_PASSWORD, CONF_SMTP_RECIPIENT,
-    CONF_NOTIFY_PUSH, CONF_NOTIFY_PERSISTENT, CONF_NOTIFY_EMAIL,
-    DEFAULT_REMINDER_DAYS, DEFAULT_WARNING_DAYS,
-)
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Three-step setup wizard: connection → thresholds → notifications."""
+    """Handle setup config flow."""
 
     VERSION = 1
 
-    def __init__(self) -> None:
-        self._data: dict = {}
-
-    # Step 1 ── Cerbo GX connection ──────────────────────────────────────────
-
     async def async_step_user(self, user_input=None):
+        """Step 1 — boat name and Cerbo GX connection details."""
         errors = {}
+
         if user_input is not None:
-            host  = user_input[CONF_CERBO_HOST].strip()
-            slave = user_input[CONF_MODBUS_SLAVE]
+            # Test Modbus connection
+            host  = user_input["cerbo_host"].strip()
+            slave = user_input["modbus_slave"]
             ok, err = await self._test_modbus(host, slave)
             if ok:
-                self._data.update(user_input)
-                return await self.async_step_thresholds()
+                await self.async_set_unique_id(f"cc_movement_monitor_{host}")
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=user_input.get("boat_name", "My Boat"),
+                    data=user_input,
+                )
             errors["base"] = err
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required(CONF_BOAT_NAME, default="My Boat"): str,
-                vol.Required(CONF_CERBO_HOST): str,
-                vol.Required(CONF_MODBUS_SLAVE, default=100):
+                vol.Required("boat_name", default="My Boat"): str,
+                vol.Required("cerbo_host"): str,
+                vol.Required("modbus_slave", default=100):
                     vol.All(int, vol.Range(min=1, max=247)),
-            }),
-            errors=errors,
-        )
-
-    # Step 2 ── Thresholds ───────────────────────────────────────────────────
-
-    async def async_step_thresholds(self, user_input=None):
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_notifications()
-
-        return self.async_show_form(
-            step_id="thresholds",
-            data_schema=vol.Schema({
-                vol.Required(CONF_REMINDER_DAYS, default=DEFAULT_REMINDER_DAYS):
+                vol.Required("reminder_days", default=14):
                     vol.All(int, vol.Range(min=1, max=28)),
-                vol.Required(CONF_WARNING_DAYS, default=DEFAULT_WARNING_DAYS):
+                vol.Required("warning_days", default=10):
                     vol.All(int, vol.Range(min=1, max=27)),
-            }),
-        )
-
-    # Step 3 ── Notifications ────────────────────────────────────────────────
-
-    async def async_step_notifications(self, user_input=None):
-        errors = {}
-        if user_input is not None:
-            if user_input.get(CONF_NOTIFY_EMAIL) and not user_input.get(CONF_SMTP_RECIPIENT):
-                errors[CONF_SMTP_RECIPIENT] = "recipient_required"
-            if user_input.get(CONF_NOTIFY_EMAIL) and not user_input.get(CONF_SMTP_SERVER):
-                errors[CONF_SMTP_SERVER] = "smtp_required"
-            if user_input.get(CONF_NOTIFY_PUSH) and not user_input.get(CONF_NOTIFIER, "").strip():
-                errors[CONF_NOTIFIER] = "notifier_required"
-
-            if not errors:
-                self._data.update(user_input)
-                await self.async_set_unique_id(f"cc_movement_monitor_{self._data[CONF_CERBO_HOST]}")
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title="CC Movement Monitor", data=self._data)
-
-        return self.async_show_form(
-            step_id="notifications",
-            data_schema=vol.Schema({
-                vol.Required(CONF_NOTIFY_PUSH,       default=True):  bool,
-                vol.Optional(CONF_NOTIFIER,          default=""):    str,
-                vol.Required(CONF_NOTIFY_PERSISTENT, default=True):  bool,
-                vol.Required(CONF_NOTIFY_EMAIL,      default=False): bool,
-                vol.Optional(CONF_SMTP_SERVER,       default="smtp.gmail.com"): str,
-                vol.Optional(CONF_SMTP_PORT,         default=587):   int,
-                vol.Optional(CONF_SMTP_USER,         default=""):    str,
-                vol.Optional(CONF_SMTP_PASSWORD,     default=""):    str,
-                vol.Optional(CONF_SMTP_RECIPIENT,    default=""):    str,
+                vol.Required("notify_push", default=True): bool,
+                vol.Optional("notifier", default=""): str,
+                vol.Required("notify_persistent", default=True): bool,
+                vol.Required("notify_email", default=False): bool,
+                vol.Optional("smtp_server", default="smtp.gmail.com"): str,
+                vol.Optional("smtp_port", default=587): int,
+                vol.Optional("smtp_user", default=""): str,
+                vol.Optional("smtp_password", default=""): str,
+                vol.Optional("smtp_recipient", default=""): str,
             }),
             errors=errors,
         )
-
-    # Modbus connection test ──────────────────────────────────────────────────
 
     async def _test_modbus(self, host: str, slave: int):
+        """Try connecting to the Cerbo GX and reading one register."""
         def _test():
-            from pymodbus.client import ModbusTcpClient
-            c = ModbusTcpClient(host, port=502, timeout=5)
             try:
+                from pymodbus.client import ModbusTcpClient
+                c = ModbusTcpClient(host, port=502, timeout=5)
                 if not c.connect():
                     return False, "cannot_connect"
                 r = c.read_holding_registers(2806, count=1, slave=slave)
-                return (False, "modbus_error") if r.isError() else (True, "")
-            except Exception:
-                return False, "cannot_connect"
-            finally:
                 c.close()
+                return (False, "modbus_error") if r.isError() else (True, "")
+            except Exception:  # noqa: BLE001
+                return False, "cannot_connect"
         return await self.hass.async_add_executor_job(_test)
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
+        """Return options flow."""
         return OptionsFlow(config_entry)
 
 
 class OptionsFlow(config_entries.OptionsFlow):
-    """Reconfigure thresholds and notifications after initial setup."""
+    """Handle options (reconfigure after setup)."""
 
     def __init__(self, config_entry) -> None:
         self._entry = config_entry
 
     async def async_step_init(self, user_input=None):
-        errors = {}
+        """Show options form."""
         if user_input is not None:
-            if user_input.get(CONF_NOTIFY_EMAIL) and not user_input.get(CONF_SMTP_RECIPIENT, "").strip():
-                errors[CONF_SMTP_RECIPIENT] = "recipient_required"
-            if user_input.get(CONF_NOTIFY_PUSH) and not user_input.get(CONF_NOTIFIER, "").strip():
-                errors[CONF_NOTIFIER] = "notifier_required"
-            if not errors:
-                return self.async_create_entry(title="", data=user_input)
+            return self.async_create_entry(title="", data=user_input)
 
         cfg = {**self._entry.data, **self._entry.options}
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Required(CONF_REMINDER_DAYS,
-                    default=cfg.get(CONF_REMINDER_DAYS, DEFAULT_REMINDER_DAYS)):
+                vol.Required("reminder_days",
+                    default=cfg.get("reminder_days", 14)):
                     vol.All(int, vol.Range(min=1, max=28)),
-                vol.Required(CONF_WARNING_DAYS,
-                    default=cfg.get(CONF_WARNING_DAYS, DEFAULT_WARNING_DAYS)):
+                vol.Required("warning_days",
+                    default=cfg.get("warning_days", 10)):
                     vol.All(int, vol.Range(min=1, max=27)),
-                vol.Required(CONF_NOTIFY_PUSH,
-                    default=cfg.get(CONF_NOTIFY_PUSH, True)): bool,
-                vol.Optional(CONF_NOTIFIER,
-                    default=cfg.get(CONF_NOTIFIER, "")): str,
-                vol.Required(CONF_NOTIFY_PERSISTENT,
-                    default=cfg.get(CONF_NOTIFY_PERSISTENT, True)): bool,
-                vol.Required(CONF_NOTIFY_EMAIL,
-                    default=cfg.get(CONF_NOTIFY_EMAIL, False)): bool,
-                vol.Optional(CONF_SMTP_SERVER,
-                    default=cfg.get(CONF_SMTP_SERVER, "smtp.gmail.com")): str,
-                vol.Optional(CONF_SMTP_PORT,
-                    default=cfg.get(CONF_SMTP_PORT, 587)): int,
-                vol.Optional(CONF_SMTP_USER,
-                    default=cfg.get(CONF_SMTP_USER, "")): str,
-                vol.Optional(CONF_SMTP_PASSWORD,
-                    default=cfg.get(CONF_SMTP_PASSWORD, "")): str,
-                vol.Optional(CONF_SMTP_RECIPIENT,
-                    default=cfg.get(CONF_SMTP_RECIPIENT, "")): str,
+                vol.Required("notify_push",
+                    default=cfg.get("notify_push", True)): bool,
+                vol.Optional("notifier",
+                    default=cfg.get("notifier", "")): str,
+                vol.Required("notify_persistent",
+                    default=cfg.get("notify_persistent", True)): bool,
+                vol.Required("notify_email",
+                    default=cfg.get("notify_email", False)): bool,
+                vol.Optional("smtp_server",
+                    default=cfg.get("smtp_server", "smtp.gmail.com")): str,
+                vol.Optional("smtp_port",
+                    default=cfg.get("smtp_port", 587)): int,
+                vol.Optional("smtp_user",
+                    default=cfg.get("smtp_user", "")): str,
+                vol.Optional("smtp_password",
+                    default=cfg.get("smtp_password", "")): str,
+                vol.Optional("smtp_recipient",
+                    default=cfg.get("smtp_recipient", "")): str,
             }),
-            errors=errors,
         )

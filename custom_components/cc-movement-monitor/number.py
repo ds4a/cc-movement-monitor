@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from .const import DOMAIN, CONF_REMINDER_DAYS, CONF_WARNING_DAYS, DEFAULT_REMINDER_DAYS, DEFAULT_WARNING_DAYS
+from .const import DOMAIN
 from .coordinator import BoatCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,10 +65,10 @@ class BoatReminderDaysNumber(_BoatNumber):
     _attr_name = "Move Reminder Days"
     _attr_icon = "mdi:calendar-check"
     def __init__(self, c, e):
-        super().__init__(c, e, "reminder_days", CONF_REMINDER_DAYS, DEFAULT_REMINDER_DAYS, 1, 28)
+        super().__init__(c, e, "reminder_days", "reminder_days", 14, 1, 28)
 
 class BoatWarningDaysNumber(_BoatNumber):
     _attr_name = "Early Warning Days"
     _attr_icon = "mdi:calendar-alert"
     def __init__(self, c, e):
-        super().__init__(c, e, "warning_days", CONF_WARNING_DAYS, DEFAULT_WARNING_DAYS, 1, 27)
+        super().__init__(c, e, "warning_days", "warning_days", 10, 1, 27)

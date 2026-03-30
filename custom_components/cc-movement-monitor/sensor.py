@@ -11,12 +11,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN,
-    CONF_REMINDER_DAYS, CONF_WARNING_DAYS,
+    DOMAIN,
     ENTITY_LATITUDE, ENTITY_LONGITUDE, ENTITY_SPEED, ENTITY_FIX,
     ENTITY_LAST_MOVED, ENTITY_STATIONARY_HOURS, ENTITY_STATIONARY_DAYS,
     ENTITY_DAYS_REMAINING, ENTITY_STATUS,
     STATUS_OK, STATUS_WARN, STATUS_ALERT, STATUS_NO_FIX,
-    DEFAULT_REMINDER_DAYS, DEFAULT_WARNING_DAYS,
 )
 from .coordinator import BoatCoordinator
 
@@ -156,7 +155,7 @@ class BoatDaysRemainingSensor(_Base):
     def native_value(self) -> float | None:
         lm = self.coordinator.last_moved_utc
         if lm is None: return None
-        threshold = self._cfg(CONF_REMINDER_DAYS, DEFAULT_REMINDER_DAYS)
+        threshold = self._cfg("reminder_days", 14)
         elapsed = (datetime.now(timezone.utc) - lm).total_seconds() / 86400
         return round(max(threshold - elapsed, 0), 1)
 
@@ -170,8 +169,8 @@ class BoatMooringStatusSensor(_Base):
         lm = self.coordinator.last_moved_utc
         if lm is None: return STATUS_NO_FIX
         days = (datetime.now(timezone.utc) - lm).total_seconds() / 86400
-        reminder = self._cfg(CONF_REMINDER_DAYS, DEFAULT_REMINDER_DAYS)
-        warning  = self._cfg(CONF_WARNING_DAYS,  DEFAULT_WARNING_DAYS)
+        reminder = self._cfg("reminder_days", 14)
+        warning  = self._cfg()
         if days >= reminder: return STATUS_ALERT
         if days >= warning:  return STATUS_WARN
         return STATUS_OK

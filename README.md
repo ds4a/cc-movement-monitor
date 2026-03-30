@@ -33,7 +33,7 @@ when she has been stationary longer than your configured threshold.
 ### Via HACS (recommended)
 
 1. HACS → Integrations → ⋮ menu → **Custom repositories**
-2. URL: `https://github.com/ds4a/cc-movement-monitor`  Category: **Integration**
+2. URL: `https://github.com/YOUR_GITHUB/cc-movement-monitor`  Category: **Integration**
 3. Click **Download**
 4. Restart Home Assistant
 5. Settings → Devices & Services → **Add Integration** → search **CC Movement Monitor**
