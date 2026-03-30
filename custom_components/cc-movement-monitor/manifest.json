@@ -5,9 +5,9 @@
   "config_flow": true,
   "documentation": "https://github.com/ds4a/cc-movement-monitor",
   "issue_tracker": "https://github.com/ds4a/cc-movement-monitor/issues",
-  "requirements": ["pymodbus==3.6.4"],
-  "dependencies": [],
-  "codeowners": ["@dsa4"],
+  "requirements": [],
+  "dependencies": ["modbus"],
+  "codeowners": ["@ds4a"],
   "iot_class": "local_polling",
   "homeassistant": "2024.1.0"
 }
