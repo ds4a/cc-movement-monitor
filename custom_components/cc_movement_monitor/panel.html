@@ -363,66 +363,23 @@ const ENTITIES = {
 const _params   = new URLSearchParams(window.location.search);
 const BOAT_NAME = decodeURIComponent(_params.get("boat") || "CC Movement Monitor");
 
-// ── Auth via HA postMessage ───────────────────────────────────────────────────
-// Requests a short-lived token from the HA frontend (parent frame)
-// following the official HA external auth protocol.
-let HA_BASE  = window.location.origin;
-let HA_TOKEN = null;
-
-function requestAuth() {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      // Fallback: we're probably opened directly in browser, not in iframe
-      // Try cookie-based auth (same origin)
-      resolve(null);
-    }, 3000);
-
-    window.addEventListener('message', function handler(e) {
-      if (e.data && e.data.type === 'auth/result') {
-        clearTimeout(timeout);
-        window.removeEventListener('message', handler);
-        if (e.data.result) {
-          HA_TOKEN = e.data.result.access_token;
-          HA_BASE  = e.data.result.hassUrl || window.location.origin;
-          resolve(HA_TOKEN);
-        } else {
-          reject(new Error('Auth failed'));
-        }
-      }
-    });
-
-    // Request token from parent HA frame
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'auth/request' }, '*');
-    } else {
-      clearTimeout(timeout);
-      resolve(null); // opened directly, use cookie auth
-    }
-  });
-}
-
 // ── API helpers ───────────────────────────────────────────────────────────────
+// Panel is served from HA's own origin so session cookie handles auth.
+const HA_BASE = window.location.origin;
+
 async function haGet(entity) {
-  const headers = HA_TOKEN
-    ? { Authorization: `Bearer ${HA_TOKEN}` }
-    : {};
   const r = await fetch(`${HA_BASE}/api/states/${entity}`, {
-    headers,
-    credentials: HA_TOKEN ? 'omit' : 'include',
+    credentials: 'include',
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
 async function haSet(domain, service, data) {
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(HA_TOKEN ? { Authorization: `Bearer ${HA_TOKEN}` } : {}),
-  };
   await fetch(`${HA_BASE}/api/services/${domain}/${service}`, {
     method: 'POST',
-    headers,
-    credentials: HA_TOKEN ? 'omit' : 'include',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
 }
@@ -578,11 +535,6 @@ async function fetchAll() {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (async () => {
-  try {
-    await requestAuth();
-  } catch (e) {
-    console.warn('Auth via postMessage failed, falling back to cookie auth');
-  }
   await fetchAll();
   setInterval(fetchAll, 60000);
 })();
