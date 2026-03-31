@@ -365,11 +365,13 @@ const BOAT_NAME = decodeURIComponent(_params.get("boat") || "CC Movement Monitor
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 // Panel is served from HA's own origin so session cookie handles auth.
-const HA_BASE = window.location.origin;
+// Token and base URL are injected by the integration at startup
+const HA_BASE  = window.location.origin;
+const HA_TOKEN = '%%HA_TOKEN%%';
 
 async function haGet(entity) {
   const r = await fetch(`${HA_BASE}/api/states/${entity}`, {
-    credentials: 'include',
+    headers: { Authorization: `Bearer ${HA_TOKEN}` },
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
@@ -378,8 +380,10 @@ async function haGet(entity) {
 async function haSet(domain, service, data) {
   await fetch(`${HA_BASE}/api/services/${domain}/${service}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${HA_TOKEN}`,
+    },
     body: JSON.stringify(data),
   });
 }

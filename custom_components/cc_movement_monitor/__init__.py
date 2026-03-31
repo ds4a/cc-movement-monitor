@@ -9,6 +9,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.auth.const import ACCESS_TOKEN_EXPIRATION
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import BoatCoordinator
@@ -47,9 +49,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     # ── Register static panel file ────────────────────────────────────────────
-    # Serves panel.html at /cc_movement_monitor_panel/index.html
-    # The panel is registered once globally — guard against multiple entries
     if not hass.data[DOMAIN].get("_panel_registered"):
+
+        # Create a long-lived token for the panel to use
+        user = await hass.auth.async_get_owner()
+        refresh_token = await hass.auth.async_create_refresh_token(
+            user,
+            client_name="CC Movement Monitor Panel",
+            token_type="long_lived_access_token",
+            access_token_expiration=dt_util.timedelta(days=3650),
+        )
+        access_token = hass.auth.async_create_access_token(refresh_token)
+
+        # Inject the token into the panel HTML
+        panel_template = PANEL_PATH.read_text()
+        panel_content  = panel_template.replace("%%HA_TOKEN%%", access_token)
+        panel_out = PANEL_PATH.parent / "panel_live.html"
+        panel_out.write_text(panel_content)
+
         await hass.http.async_register_static_paths([
             StaticPathConfig(
                 url_path=f"/{DOMAIN}_panel",
@@ -57,6 +74,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 cache_headers=False,
             )
         ])
+
         _boat_name = entry.data.get("boat_name", "Boat")
         from homeassistant.components import frontend
         frontend.async_register_built_in_panel(
@@ -65,7 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             sidebar_title=f"{_boat_name} Monitor",
             sidebar_icon="mdi:ferry",
             frontend_url_path=PANEL_URL,
-            config={"url": f"/{DOMAIN}_panel/panel.html?boat={_boat_name}"},
+            config={"url": f"/{DOMAIN}_panel/panel_live.html?boat={_boat_name}"},
             require_admin=False,
         )
         hass.data[DOMAIN]["_panel_registered"] = True
