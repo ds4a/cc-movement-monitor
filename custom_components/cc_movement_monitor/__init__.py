@@ -58,7 +58,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
         ])
         _boat_name = entry.data.get("boat_name", "Boat")
-        hass.components.frontend.async_register_built_in_panel(
+        from homeassistant.components import frontend
+        frontend.async_register_built_in_panel(
+            hass,
             component_name="iframe",
             sidebar_title=f"{_boat_name} Monitor",
             sidebar_icon="mdi:ferry",
