@@ -419,16 +419,15 @@ function toggleSwitch(key, checked) {
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
-function updateRing(days, limitDays, warnDays) {
+function updateRing(days, limitDays, warnDays, daysLeft) {
   const pct    = Math.min(days / limitDays, 1);
   const circ   = 2 * Math.PI * 42;
   const offset = circ * (1 - pct);
-  const left   = Math.max(limitDays - days, 0);
 
   document.getElementById('ringFill').style.strokeDashoffset = offset;
   document.getElementById('ringDays').textContent = days.toFixed(1);
   document.getElementById('daysLeft').textContent =
-    left > 0 ? `${left.toFixed(1)} days left` : 'OVERDUE';
+    daysLeft > 0 ? `${daysLeft.toFixed(1)} days left` : 'OVERDUE';
   document.getElementById('limitLine').textContent   = `of ${limitDays}-day limit`;
   document.getElementById('warningLine').textContent = `Early warning at ${warnDays} days`;
 
@@ -489,7 +488,7 @@ async function fetchAll() {
     const daysLeft  = parseFloat(data.daysLeft)  || 0;
 
     updateBanner(data.status, daysLeft);
-    updateRing(days, limitDays, warnDays);
+    updateRing(days, limitDays, warnDays, daysLeft);
 
     document.getElementById('speed').textContent = parseFloat(data.speed || 0).toFixed(1);
     document.getElementById('hours').textContent = hours.toFixed(1);
