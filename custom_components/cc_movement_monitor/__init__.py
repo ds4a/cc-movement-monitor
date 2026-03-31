@@ -3,14 +3,13 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.auth.const import ACCESS_TOKEN_EXPIRATION
-from homeassistant.util import dt as dt_util
+from homeassistant.components import frontend
 
 from .const import DOMAIN
 from .coordinator import BoatCoordinator
@@ -52,20 +51,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.data[DOMAIN].get("_panel_registered"):
 
         # Create a long-lived token for the panel to use
-        user = await hass.auth.async_get_owner()
+        users = await hass.auth.async_get_users()
+        user = next((u for u in users if u.is_owner), None)
+        if user is None:
+            _LOGGER.error("Cannot find HA owner user — panel token not created")
+            return False
+        from homeassistant.auth.models import TOKEN_TYPE_LONG_LIVED_ACCESS_TOKEN
         refresh_token = await hass.auth.async_create_refresh_token(
             user,
             client_name="CC Movement Monitor Panel",
-            token_type="long_lived_access_token",
-            access_token_expiration=dt_util.timedelta(days=3650),
+            token_type=TOKEN_TYPE_LONG_LIVED_ACCESS_TOKEN,
+            access_token_expiration=timedelta(days=3650),
         )
         access_token = hass.auth.async_create_access_token(refresh_token)
 
         # Inject the token into the panel HTML
-        panel_template = PANEL_PATH.read_text()
+        panel_template = await hass.async_add_executor_job(PANEL_PATH.read_text)
         panel_content  = panel_template.replace("%%HA_TOKEN%%", access_token)
         panel_out = PANEL_PATH.parent / "panel_live.html"
-        panel_out.write_text(panel_content)
+        await hass.async_add_executor_job(panel_out.write_text, panel_content)
 
         await hass.http.async_register_static_paths([
             StaticPathConfig(
@@ -76,7 +80,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ])
 
         _boat_name = entry.data.get("boat_name", "Boat")
-        from homeassistant.components import frontend
         frontend.async_register_built_in_panel(
             hass,
             component_name="iframe",
