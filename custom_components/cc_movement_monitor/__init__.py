@@ -50,19 +50,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # ── Register static panel file ────────────────────────────────────────────
     if not hass.data[DOMAIN].get("_panel_registered"):
 
-        # Create a long-lived token for the panel to use
+        # Create a long-lived token for the panel (reuse if already exists)
         users = await hass.auth.async_get_users()
         user = next((u for u in users if u.is_owner), None)
         if user is None:
             _LOGGER.error("Cannot find HA owner user — panel token not created")
             return False
         from homeassistant.auth.models import TOKEN_TYPE_LONG_LIVED_ACCESS_TOKEN
-        refresh_token = await hass.auth.async_create_refresh_token(
-            user,
-            client_name="CC Movement Monitor Panel",
-            token_type=TOKEN_TYPE_LONG_LIVED_ACCESS_TOKEN,
-            access_token_expiration=timedelta(days=3650),
+        CLIENT_NAME = "CC Movement Monitor Panel"
+        # Reuse existing token if already created
+        existing = next(
+            (rt for rt in user.refresh_tokens.values()
+             if rt.client_name == CLIENT_NAME),
+            None,
         )
+        if existing:
+            refresh_token = existing
+            _LOGGER.debug("Reusing existing panel token")
+        else:
+            refresh_token = await hass.auth.async_create_refresh_token(
+                user,
+                client_name=CLIENT_NAME,
+                token_type=TOKEN_TYPE_LONG_LIVED_ACCESS_TOKEN,
+                access_token_expiration=timedelta(days=3650),
+            )
         access_token = hass.auth.async_create_access_token(refresh_token)
 
         # Inject the token into the panel HTML
