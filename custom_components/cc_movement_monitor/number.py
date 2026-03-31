@@ -6,7 +6,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 from .const import DOMAIN
 from .coordinator import BoatCoordinator
 
@@ -22,7 +21,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry,
     ])
 
 
-class _BoatNumber(NumberEntity, RestoreEntity):
+class _BoatNumber(NumberEntity):
     _attr_has_entity_name = True
     _attr_mode = NumberMode.SLIDER
     _attr_native_step = 1
@@ -52,13 +51,10 @@ class _BoatNumber(NumberEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        state = await self.async_get_last_state()
-        if state and state.state not in ("unknown", "unavailable"):
-            try:
-                self._val = float(state.state)
-            except ValueError:
-                pass
+        # Always read from config entry — it's the authoritative source
+        self._val = float(self._entry.options.get(
+            self._conf_key, self._entry.data.get(self._conf_key, self._val)
+        ))
 
 
 class BoatReminderDaysNumber(_BoatNumber):
