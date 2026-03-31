@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CC Movement Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --canal:  #2a5c6e;
+    --water:  #3d7a8a;
+    --foam:   #7fb8c8;
+    --rust:   #b85c2a;
+    --amber:  #d4823a;
+    --cream:  #f4efe8;
+    --dark:   #1a2e35;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--dark);
+    color: var(--cream);
+    font-family: 'Crimson Pro', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      repeating-linear-gradient(-15deg, transparent, transparent 40px,
+        rgba(61,122,138,0.06) 40px, rgba(61,122,138,0.06) 41px),
+      linear-gradient(180deg, #1a2e35 0%, #0f1f25 100%);
+    z-index: 0;
+    animation: ripple 12s ease-in-out infinite alternate;
+  }
+
+  @keyframes ripple {
+    from { background-position: 0 0; }
+    to   { background-position: 60px 20px; }
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+  }
+
+  header { text-align: center; padding: 2rem 0 1.5rem; }
+
+  .boat-icon {
+    display: block;
+    filter: drop-shadow(0 6px 16px rgba(127,184,200,0.35));
+    animation: bob 4s ease-in-out infinite;
+    margin-bottom: 0.25rem;
+  }
+
+  @keyframes bob {
+    0%, 100% { transform: translateY(0) rotate(-1deg); }
+    50%       { transform: translateY(-6px) rotate(1deg); }
+  }
+
+  h1 { font-size: 2rem; font-weight: 300; letter-spacing: 0.12em; margin-top: 0.5rem; }
+  h1 span { color: var(--foam); font-weight: 600; }
+  .subtitle { font-size: 0.85rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--foam); opacity: 0.6; margin-top: 0.25rem; }
+
+  .status-banner {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.75rem; padding: 0.9rem 1.5rem; border-radius: 12px;
+    margin: 1.5rem 0; font-size: 1.1rem; font-weight: 600;
+    letter-spacing: 0.05em; transition: all 0.4s ease; border: 1px solid transparent;
+  }
+  .status-banner.ok    { background: rgba(74,124,94,0.2);  border-color: rgba(74,124,94,0.4);  color: #8fd4a8; }
+  .status-banner.warn  { background: rgba(196,126,40,0.2); border-color: rgba(196,126,40,0.4); color: #f0b865; }
+  .status-banner.alert { background: rgba(166,50,32,0.25); border-color: rgba(166,50,32,0.5);  color: #f08070; animation: pulse-red 2s ease-in-out infinite; }
+  .status-banner.nofix { background: rgba(80,80,80,0.2);   border-color: rgba(127,184,200,0.2); color: #aaa; }
+
+  @keyframes pulse-red {
+    0%,100% { box-shadow: 0 0 0 0 rgba(166,50,32,0.3); }
+    50%     { box-shadow: 0 0 0 8px rgba(166,50,32,0); }
+  }
+
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .ok    .status-dot { background: #8fd4a8; box-shadow: 0 0 8px #8fd4a8; }
+  .warn  .status-dot { background: #f0b865; box-shadow: 0 0 8px #f0b865; }
+  .alert .status-dot { background: #f08070; box-shadow: 0 0 8px #f08070; animation: blink 1s step-end infinite; }
+  .nofix .status-dot { background: #aaa; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  .card {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(127,184,200,0.12);
+    border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+    backdrop-filter: blur(4px);
+  }
+
+  .card-title {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.2em;
+    color: var(--foam); opacity: 0.55; margin-bottom: 1rem;
+  }
+
+  .progress-section { display: flex; align-items: center; gap: 1.5rem; }
+
+  .ring-wrap { position: relative; width: 100px; height: 100px; flex-shrink: 0; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg   { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 8; }
+  .ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.2s ease, stroke 0.4s ease; }
+
+  .ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .ring-days  { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 600; line-height: 1; }
+  .ring-unit  { font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.5; margin-top: 2px; }
+
+  .progress-info { flex: 1; }
+  .progress-info .big-label { font-size: 1.3rem; font-weight: 600; line-height: 1.2; }
+  .progress-info .sub-label { font-size: 0.85rem; opacity: 0.55; margin-top: 0.3rem; }
+  .progress-info .warn-label { font-size: 0.8rem; opacity: 0.5; margin-top: 0.6rem; }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+  .stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(127,184,200,0.08); border-radius: 10px; padding: 0.9rem 1rem; }
+  .stat-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.15em; opacity: 0.45; margin-bottom: 0.3rem; }
+  .stat-value { font-family: 'JetBrains Mono', monospace; font-size: 1.15rem; font-weight: 600; color: var(--foam); }
+  .stat-unit  { font-size: 0.65rem; opacity: 0.5; margin-left: 2px; }
+
+  .timeline-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .timeline-row:last-child { border-bottom: none; }
+  .tl-icon { width: 32px; height: 32px; border-radius: 50%; background: rgba(127,184,200,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.95rem; flex-shrink: 0; }
+  .tl-label { font-size: 0.75rem; opacity: 0.5; }
+  .tl-value { font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; }
+
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 0.9rem; }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 110px; height: 4px; background: rgba(127,184,200,0.2);
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--foam); box-shadow: 0 0 6px rgba(127,184,200,0.6);
+  }
+  .range-val { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; width: 30px; text-align: right; color: var(--foam); }
+
+  .toggle { position: relative; width: 44px; height: 24px; cursor: pointer; }
+  .toggle input { display: none; }
+  .toggle-track { position: absolute; inset: 0; background: rgba(255,255,255,0.1); border-radius: 12px; transition: background 0.2s; }
+  .toggle input:checked + .toggle-track { background: var(--canal); }
+  .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); pointer-events: none; }
+  .toggle input:checked ~ .toggle-thumb { transform: translateX(20px); }
+
+  .footer-row { display: flex; align-items: center; justify-content: space-between; margin-top: 1.25rem; flex-wrap: wrap; gap: 0.5rem; }
+
+  .status-pill { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 20px; padding: 0.3rem 0.8rem; font-size: 0.75rem; letter-spacing: 0.1em; }
+  .status-pill.online  { background: rgba(74,124,94,0.15);  border: 1px solid rgba(74,124,94,0.3);  color: #8fd4a8; }
+  .status-pill.offline { background: rgba(166,50,32,0.15); border: 1px solid rgba(166,50,32,0.3); color: #f08070; }
+  .pill-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .online  .pill-dot { background: #8fd4a8; box-shadow: 0 0 6px #8fd4a8; animation: blink 2s ease-in-out infinite; }
+  .offline .pill-dot { background: #f08070; }
+
+  .updated { font-size: 0.7rem; opacity: 0.35; letter-spacing: 0.1em; }
+
+  .auth-waiting {
+    text-align: center; padding: 3rem 1rem; opacity: 0.5;
+    font-size: 0.9rem; letter-spacing: 0.1em;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="boat-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 80" width="160" height="80" style="display:block;margin:0 auto;">
+        <ellipse cx="80" cy="72" rx="68" ry="5" fill="rgba(127,184,200,0.18)"/>
+        <path d="M12 55 Q10 65 22 67 L138 67 Q152 67 150 58 L148 52 Z" fill="#b85c2a" stroke="#7a3a18" stroke-width="1.2"/>
+        <path d="M22 54 L145 54" stroke="#d4823a" stroke-width="2" opacity="0.5"/>
+        <rect x="20" y="60" width="120" height="4" rx="1" fill="#f4efe8" opacity="0.35"/>
+        <rect x="30" y="32" width="90" height="23" rx="3" fill="#2a5c6e" stroke="#1a3c4e" stroke-width="1"/>
+        <path d="M30 35 Q75 26 120 35" fill="none" stroke="#3d7a8a" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M30 35 L30 55 L120 55 L120 35 Q75 26 30 35Z" fill="#2a5c6e" stroke="none"/>
+        <path d="M34 34 Q75 25.5 116 34" fill="none" stroke="#7fb8c8" stroke-width="1" opacity="0.4"/>
+        <rect x="45" y="38" width="14" height="10" rx="2" fill="#7fb8c8" opacity="0.7" stroke="#5aa0b0" stroke-width="0.8"/>
+        <rect x="68" y="38" width="14" height="10" rx="2" fill="#7fb8c8" opacity="0.7" stroke="#5aa0b0" stroke-width="0.8"/>
+        <rect x="91" y="38" width="14" height="10" rx="2" fill="#7fb8c8" opacity="0.7" stroke="#5aa0b0" stroke-width="0.8"/>
+        <rect x="46" y="39" width="4" height="3" rx="1" fill="white" opacity="0.3"/>
+        <rect x="69" y="39" width="4" height="3" rx="1" fill="white" opacity="0.3"/>
+        <rect x="92" y="39" width="4" height="3" rx="1" fill="white" opacity="0.3"/>
+        <rect x="36" y="18" width="7" height="16" rx="2" fill="#1a2e35" stroke="#2a5c6e" stroke-width="1"/>
+        <circle cx="39.5" cy="14" r="4" fill="rgba(200,200,200,0.2)"/>
+        <circle cx="42"   cy="10" r="3" fill="rgba(200,200,200,0.12)"/>
+        <circle cx="38"   cy="7"  r="2.5" fill="rgba(200,200,200,0.08)"/>
+        <path d="M12 55 Q8 60 14 67 L22 67 L20 55 Z" fill="#9a4a20" stroke="#7a3a18" stroke-width="1"/>
+        <path d="M148 52 L150 58 Q152 67 142 67 L138 67 L140 52 Z" fill="#9a4a20" stroke="#7a3a18" stroke-width="1"/>
+        <path d="M146 50 Q155 44 158 38" stroke="#d4823a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <circle cx="158" cy="38" r="3" fill="#d4823a"/>
+        <circle cx="18" cy="60" r="3.5" fill="none" stroke="#f4efe8" stroke-width="1.2" opacity="0.5"/>
+        <circle cx="18" cy="60" r="1.5" fill="none" stroke="#f4efe8" stroke-width="1" opacity="0.4"/>
+        <circle cx="110" cy="46" r="3" fill="#b85c2a" opacity="0.6"/>
+        <circle cx="110" cy="46" r="1.5" fill="#f0b865" opacity="0.7"/>
+      </svg>
+    </div>
+    <h1 id="pageTitle">CC <span>Movement</span> Monitor</h1>
+    <p class="subtitle" id="boatName">Loading...</p>
+  </header>
+
+  <div class="status-banner nofix" id="statusBanner">
+    <div class="status-dot"></div>
+    <span id="statusText">Authenticating...</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Mooring Limit Progress</div>
+    <div class="progress-section">
+      <div class="ring-wrap">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <circle class="ring-bg" cx="50" cy="50" r="42"/>
+          <circle class="ring-fill" id="ringFill" cx="50" cy="50" r="42"
+            stroke="#7fb8c8" stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
+        </svg>
+        <div class="ring-label">
+          <span class="ring-days" id="ringDays">—</span>
+          <span class="ring-unit">days</span>
+        </div>
+      </div>
+      <div class="progress-info">
+        <div class="big-label" id="daysLeft">— days left</div>
+        <div class="sub-label" id="limitLine">of 14-day limit</div>
+        <div class="warn-label" id="warningLine">Early warning at 10 days</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="card stat">
+      <div class="stat-label">Speed</div>
+      <div class="stat-value"><span id="speed">—</span><span class="stat-unit">km/h</span></div>
+    </div>
+    <div class="card stat">
+      <div class="stat-label">Hours Stationary</div>
+      <div class="stat-value"><span id="hours">—</span><span class="stat-unit">h</span></div>
+    </div>
+    <div class="card stat">
+      <div class="stat-label">Latitude</div>
+      <div class="stat-value" style="font-size:0.95rem" id="lat">—</div>
+    </div>
+    <div class="card stat">
+      <div class="stat-label">Longitude</div>
+      <div class="stat-value" style="font-size:0.95rem" id="lon">—</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Timeline</div>
+    <div class="timeline-row">
+      <div class="tl-icon">📍</div>
+      <div>
+        <div class="tl-label">Last Moved</div>
+        <div class="tl-value" id="lastMoved">—</div>
+      </div>
+    </div>
+    <div class="timeline-row">
+      <div class="tl-icon">⚓</div>
+      <div>
+        <div class="tl-label">Current Mooring</div>
+        <div class="tl-value" id="mooringDuration">—</div>
+      </div>
+    </div>
+    <div class="timeline-row">
+      <div class="tl-icon">📅</div>
+      <div>
+        <div class="tl-label">Must Move By</div>
+        <div class="tl-value" id="mustMoveBy">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Reminder Settings</div>
+
+    <div class="setting-row">
+      <div class="setting-label">Must move after</div>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <input type="range" id="limitSlider" min="1" max="28" value="14"
+          oninput="updateLimitSlider(this)">
+        <span class="range-val" id="limitVal">14d</span>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-label">Early warning at</div>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <input type="range" id="warnSlider" min="1" max="27" value="10"
+          oninput="updateWarnSlider(this)">
+        <span class="range-val" id="warnVal">10d</span>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-label">📱 Push notifications</div>
+      <label class="toggle">
+        <input type="checkbox" id="togglePush" onchange="toggleSwitch('push', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-label">🖥 Dashboard alerts</div>
+      <label class="toggle">
+        <input type="checkbox" id="togglePersistent" onchange="toggleSwitch('persistent', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-label">✉️ Email alerts</div>
+      <label class="toggle">
+        <input type="checkbox" id="toggleEmail" onchange="toggleSwitch('email', this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </div>
+  </div>
+
+  <div class="footer-row">
+    <div class="status-pill online" id="connPill">
+      <div class="pill-dot"></div>
+      <span id="connText">Cerbo GX Online</span>
+    </div>
+    <div class="updated" id="updatedTime">—</div>
+  </div>
+
+</div>
+
+<script>
+// ── Entity IDs ────────────────────────────────────────────────────────────────
+const ENTITIES = {
+  status:      'sensor.cc_movement_monitor_mooring_status',
+  days:        'sensor.cc_movement_monitor_days_stationary',
+  hours:       'sensor.cc_movement_monitor_hours_stationary',
+  daysLeft:    'sensor.cc_movement_monitor_days_until_must_move',
+  lastMoved:   'sensor.cc_movement_monitor_last_moved',
+  lat:         'sensor.cc_movement_monitor_latitude',
+  lon:         'sensor.cc_movement_monitor_longitude',
+  speed:       'sensor.cc_movement_monitor_speed',
+  gps:         'sensor.cc_movement_monitor_gps_fix',
+  limitDays:   'number.cc_movement_monitor_move_reminder_days',
+  warnDays:    'number.cc_movement_monitor_early_warning_days',
+  pushSwitch:  'switch.cc_movement_monitor_push_notifications',
+  persSwitch:  'switch.cc_movement_monitor_dashboard_alerts',
+  emailSwitch: 'switch.cc_movement_monitor_email_alerts',
+};
+
+// ── Boat name from URL parameter
+const _params   = new URLSearchParams(window.location.search);
+const BOAT_NAME = decodeURIComponent(_params.get("boat") || "CC Movement Monitor");
+
+// ── Auth via HA postMessage ───────────────────────────────────────────────────
+// Requests a short-lived token from the HA frontend (parent frame)
+// following the official HA external auth protocol.
+let HA_BASE  = window.location.origin;
+let HA_TOKEN = null;
+
+function requestAuth() {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      // Fallback: we're probably opened directly in browser, not in iframe
+      // Try cookie-based auth (same origin)
+      resolve(null);
+    }, 3000);
+
+    window.addEventListener('message', function handler(e) {
+      if (e.data && e.data.type === 'auth/result') {
+        clearTimeout(timeout);
+        window.removeEventListener('message', handler);
+        if (e.data.result) {
+          HA_TOKEN = e.data.result.access_token;
+          HA_BASE  = e.data.result.hassUrl || window.location.origin;
+          resolve(HA_TOKEN);
+        } else {
+          reject(new Error('Auth failed'));
+        }
+      }
+    });
+
+    // Request token from parent HA frame
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'auth/request' }, '*');
+    } else {
+      clearTimeout(timeout);
+      resolve(null); // opened directly, use cookie auth
+    }
+  });
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function haGet(entity) {
+  const headers = HA_TOKEN
+    ? { Authorization: `Bearer ${HA_TOKEN}` }
+    : {};
+  const r = await fetch(`${HA_BASE}/api/states/${entity}`, {
+    headers,
+    credentials: HA_TOKEN ? 'omit' : 'include',
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function haSet(domain, service, data) {
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(HA_TOKEN ? { Authorization: `Bearer ${HA_TOKEN}` } : {}),
+  };
+  await fetch(`${HA_BASE}/api/services/${domain}/${service}`, {
+    method: 'POST',
+    headers,
+    credentials: HA_TOKEN ? 'omit' : 'include',
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Sliders ───────────────────────────────────────────────────────────────────
+let limitTimer, warnTimer;
+
+function updateLimitSlider(el) {
+  document.getElementById('limitVal').textContent = el.value + 'd';
+  clearTimeout(limitTimer);
+  limitTimer = setTimeout(() =>
+    haSet('number', 'set_value', { entity_id: ENTITIES.limitDays, value: parseInt(el.value) })
+  , 800);
+}
+
+function updateWarnSlider(el) {
+  document.getElementById('warnVal').textContent = el.value + 'd';
+  clearTimeout(warnTimer);
+  warnTimer = setTimeout(() =>
+    haSet('number', 'set_value', { entity_id: ENTITIES.warnDays, value: parseInt(el.value) })
+  , 800);
+}
+
+// ── Toggles ───────────────────────────────────────────────────────────────────
+const switchMap = {
+  push:       ENTITIES.pushSwitch,
+  persistent: ENTITIES.persSwitch,
+  email:      ENTITIES.emailSwitch,
+};
+
+function toggleSwitch(key, checked) {
+  haSet('switch', checked ? 'turn_on' : 'turn_off', { entity_id: switchMap[key] });
+}
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+function updateRing(days, limitDays, warnDays) {
+  const pct    = Math.min(days / limitDays, 1);
+  const circ   = 2 * Math.PI * 42;
+  const offset = circ * (1 - pct);
+  const left   = Math.max(limitDays - days, 0);
+
+  document.getElementById('ringFill').style.strokeDashoffset = offset;
+  document.getElementById('ringDays').textContent = days.toFixed(1);
+  document.getElementById('daysLeft').textContent =
+    left > 0 ? `${left.toFixed(1)} days left` : 'OVERDUE';
+  document.getElementById('limitLine').textContent   = `of ${limitDays}-day limit`;
+  document.getElementById('warningLine').textContent = `Early warning at ${warnDays} days`;
+
+  const ring = document.getElementById('ringFill');
+  ring.style.stroke = days >= limitDays ? '#f08070'
+                    : days >= warnDays  ? '#f0b865'
+                    : '#7fb8c8';
+}
+
+function updateBanner(status, daysLeft) {
+  const banner = document.getElementById('statusBanner');
+  const text   = document.getElementById('statusText');
+  const left   = parseFloat(daysLeft) || 0;
+
+  if (status === 'MUST MOVE') {
+    banner.className = 'status-banner alert';
+    text.textContent = '🚨 Must Move NOW — limit reached';
+  } else if (status === 'Move Soon') {
+    banner.className = 'status-banner warn';
+    text.textContent = `⚠️ Plan your move — ${left.toFixed(1)} days remaining`;
+  } else if (status === 'OK') {
+    banner.className = 'status-banner ok';
+    text.textContent = `✓ Mooring OK — ${left.toFixed(1)} days remaining`;
+  } else {
+    banner.className = 'status-banner nofix';
+    text.textContent = `🛰️ ${status}`;
+  }
+}
+
+function formatDate(isoStr) {
+  if (!isoStr || isoStr === 'unknown' || isoStr === 'unavailable') return '—';
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+           + ', ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  } catch { return isoStr; }
+}
+
+function formatDuration(hours) {
+  const h = parseFloat(hours) || 0;
+  const d = Math.floor(h / 24);
+  const r = Math.floor(h % 24);
+  return `${d} day${d !== 1 ? 's' : ''}, ${r} hour${r !== 1 ? 's' : ''}`;
+}
+
+// ── Main fetch ────────────────────────────────────────────────────────────────
+async function fetchAll() {
+  try {
+    const keys    = Object.keys(ENTITIES);
+    const results = await Promise.all(keys.map(k => haGet(ENTITIES[k])));
+    const data    = {};
+    keys.forEach((k, i) => { data[k] = results[i].state; });
+
+    const days      = parseFloat(data.days)      || 0;
+    const hours     = parseFloat(data.hours)     || 0;
+    const limitDays = parseFloat(data.limitDays) || 14;
+    const warnDays  = parseFloat(data.warnDays)  || 10;
+    const daysLeft  = parseFloat(data.daysLeft)  || 0;
+
+    updateBanner(data.status, daysLeft);
+    updateRing(days, limitDays, warnDays);
+
+    document.getElementById('speed').textContent = parseFloat(data.speed || 0).toFixed(1);
+    document.getElementById('hours').textContent = hours.toFixed(1);
+    document.getElementById('lat').textContent   = parseFloat(data.lat  || 0).toFixed(5) + '°';
+    document.getElementById('lon').textContent   = parseFloat(data.lon  || 0).toFixed(5) + '°';
+
+    document.getElementById('lastMoved').textContent      = formatDate(data.lastMoved);
+    document.getElementById('mooringDuration').textContent = formatDuration(hours);
+
+    if (data.lastMoved && data.lastMoved !== 'unknown') {
+      const deadline = new Date(new Date(data.lastMoved).getTime() + limitDays * 86400000);
+      document.getElementById('mustMoveBy').textContent = formatDate(deadline.toISOString());
+    }
+
+    if (document.activeElement !== document.getElementById('limitSlider')) {
+      document.getElementById('limitSlider').value        = limitDays;
+      document.getElementById('limitVal').textContent     = limitDays + 'd';
+    }
+    if (document.activeElement !== document.getElementById('warnSlider')) {
+      document.getElementById('warnSlider').value         = warnDays;
+      document.getElementById('warnVal').textContent      = warnDays + 'd';
+    }
+
+    document.getElementById('togglePush').checked       = data.pushSwitch  === 'on';
+    document.getElementById('togglePersistent').checked = data.persSwitch  === 'on';
+    document.getElementById('toggleEmail').checked      = data.emailSwitch === 'on';
+
+    document.getElementById('boatName').textContent = BOAT_NAME;
+    document.getElementById('pageTitle').innerHTML = BOAT_NAME + ' <span>Movement</span> Monitor';
+
+    const pill = document.getElementById('connPill');
+    pill.className = data.gps === 'Fixed' ? 'status-pill online' : 'status-pill offline';
+    document.getElementById('connText').textContent =
+      data.gps === 'Fixed' ? 'Cerbo GX · GPS Fixed' : 'No GPS Fix';
+
+    document.getElementById('updatedTime').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-GB');
+
+  } catch (err) {
+    console.warn('Fetch failed:', err);
+    document.getElementById('statusBanner').className = 'status-banner nofix';
+    document.getElementById('statusText').textContent = '⚠️ Cannot reach Home Assistant';
+    document.getElementById('connPill').className     = 'status-pill offline';
+    document.getElementById('connText').textContent   = 'Connection error';
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    await requestAuth();
+  } catch (e) {
+    console.warn('Auth via postMessage failed, falling back to cookie auth');
+  }
+  await fetchAll();
+  setInterval(fetchAll, 60000);
+})();
+</script>
+</body>
+</html>

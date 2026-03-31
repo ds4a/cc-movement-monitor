@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import logging
+import pathlib
 from datetime import datetime, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.components.http import StaticPathConfig
 
 from .const import DOMAIN
 from .coordinator import BoatCoordinator
@@ -14,6 +16,9 @@ from .notify import async_send_notifications, async_dismiss_notifications
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = [Platform.SENSOR, Platform.NUMBER, Platform.SWITCH]
+
+PANEL_URL  = "cc-movement-monitor"
+PANEL_PATH = pathlib.Path(__file__).parent / "panel.html"
 
 _last_warning_sent:   dict[str, datetime] = {}
 _last_must_move_sent: dict[str, datetime] = {}
@@ -40,6 +45,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
         )
     )
+
+    # ── Register static panel file ────────────────────────────────────────────
+    # Serves panel.html at /cc_movement_monitor_panel/index.html
+    # The panel is registered once globally — guard against multiple entries
+    if not hass.data[DOMAIN].get("_panel_registered"):
+        await hass.http.async_register_static_paths([
+            StaticPathConfig(
+                url_path=f"/{DOMAIN}_panel",
+                path=str(PANEL_PATH.parent),
+                cache_headers=False,
+            )
+        ])
+        _boat_name = entry.data.get("boat_name", "Boat")
+        hass.components.frontend.async_register_built_in_panel(
+            component_name="iframe",
+            sidebar_title=f"{_boat_name} Monitor",
+            sidebar_icon="mdi:ferry",
+            frontend_url_path=PANEL_URL,
+            config={"url": f"/{DOMAIN}_panel/panel.html?boat={_boat_name}"},
+            require_admin=False,
+        )
+        hass.data[DOMAIN]["_panel_registered"] = True
+        _LOGGER.info("CC Movement Monitor panel registered at /%s", PANEL_URL)
 
     entry.async_on_unload(entry.add_update_listener(_async_reload_on_options))
     _LOGGER.info("CC Movement Monitor set up for %s", entry.data["cerbo_host"])
