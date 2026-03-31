@@ -74,7 +74,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional("smtp_user", default=""): str,
                 vol.Optional("smtp_password", default=""): str,
                 vol.Optional("smtp_recipient", default=""): str,
-                vol.Required("skip_connection_test", default=False): bool,
+                vol.Required("skip_connection_test", default=True): bool,
             }),
             errors=errors,
         )
