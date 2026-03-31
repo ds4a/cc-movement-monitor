@@ -76,7 +76,7 @@ class BoatCoordinator(DataUpdateCoordinator):
                 raise UpdateFailed(f"Cannot connect to Cerbo GX at {self._host}:502")
 
             async def read_int32(addr: int) -> int:
-                r = await client.read_holding_registers(addr, 2, self._slave)
+                r = await client.read_holding_registers(addr, count=2, device_id=self._slave)
                 if r.isError():
                     raise UpdateFailed(f"Modbus error at register {addr}")
                 hi, lo = r.registers
@@ -84,7 +84,7 @@ class BoatCoordinator(DataUpdateCoordinator):
                 return raw - 0x100000000 if raw >= 0x80000000 else raw
 
             async def read_uint16(addr: int) -> int:
-                r = await client.read_holding_registers(addr, 1, self._slave)
+                r = await client.read_holding_registers(addr, count=1, device_id=self._slave)
                 if r.isError():
                     raise UpdateFailed(f"Modbus error at register {addr}")
                 return r.registers[0]

@@ -90,7 +90,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.error("Modbus connect() failed for %s", host)
                 return False, "cannot_connect"
             try:
-                r = await client.read_holding_registers(2806, 1, slave)
+                r = await client.read_holding_registers(2806, count=1, device_id=slave)
             except ConnectionException as exc:
                 _LOGGER.error("Modbus ConnectionException for %s: %s", host, exc)
                 return False, "cannot_connect"
